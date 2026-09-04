@@ -64,11 +64,46 @@
     loadSettings();
     goToView('home');
     registerServiceWorker();
+    initFullscreen();
   });
 
   function initTheme() {
     var saved = localStorage.getItem('dtkw_theme') || 'light';
     document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
+  }
+
+  // ================== FULLSCREEN (khusus versi "Add to Home Screen") ==================
+  // manifest.json sudah minta display:"fullscreen", dan browser modern (Chrome/Android)
+  // biasanya langsung mematuhi ini begitu di-install lewat "Add to Home Screen" — tanpa
+  // butuh kode tambahan. Fungsi ini cuma jaring pengaman untuk kasus yang butuh trigger
+  // manual lewat Fullscreen API (beberapa browser mewajibkan gesture/sentuhan dulu).
+  // Tidak akan mengganggu apa pun kalau dibuka sebagai tab browser biasa.
+  function initFullscreen() {
+    var isInstalled =
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true; // iOS Safari "Add to Home Screen"
+
+    if (!isInstalled) return; // dibuka sebagai tab browser biasa -> jangan dipaksa fullscreen
+
+    tryEnterFullscreen();
+
+    // Fallback: sebagian browser hanya mengizinkan requestFullscreen() setelah
+    // ada interaksi pengguna (sentuhan/klik). Coba lagi sekali di sentuhan pertama.
+    document.addEventListener('touchend', tryEnterFullscreen, { once: true, passive: true });
+    document.addEventListener('click', tryEnterFullscreen, { once: true });
+  }
+
+  function tryEnterFullscreen() {
+    try {
+      var el = document.documentElement;
+      if (document.fullscreenElement) return; // sudah fullscreen
+      var request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (request) request.call(el).catch(function () {});
+    } catch (e) {
+      // Diamkan — kalau browser tidak mendukung/menolak, aplikasi tetap jalan normal
+      // di mode "standalone" (masih tanpa address bar, cuma status bar tetap kelihatan).
+    }
   }
 
   function registerServiceWorker() {
